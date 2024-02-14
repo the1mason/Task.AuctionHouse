@@ -4,7 +4,7 @@ public class AccountTransaction
 {
     public long Id { get; set; }
 
-    public long UserId { get; set; }
+    public long AccountId { get; set; }
 
     public long Amount { get; set; }
 

@@ -16,19 +16,11 @@ public class AuctionHouseContext : DbContext
 
     public DbSet<Bid> Bids { get; set; } = null!;
 
-    public DbSet<Role> Roles { get; set; } = null!;
-
     public DbSet<AccountTransaction> AccountTransactions { get; set; } = null!;
+    public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-
-        modelBuilder.Entity<Account>(entity =>
-        {
-            entity.HasOne(a => a.Role)
-                .WithMany(r => r!.Accounts)
-                .HasForeignKey(a => a.RoleId);
-        });
 
         modelBuilder.Entity<Lot>(entity =>
         {
@@ -39,13 +31,18 @@ public class AuctionHouseContext : DbContext
         modelBuilder.Entity<Bid>(entity =>
         {
             entity.HasOne(b => b.Lot).WithMany(l => l!.Bids).HasForeignKey(b => b.LotId);
-            entity.HasOne(b => b.User).WithMany().HasForeignKey(b => b.UserId);
+            entity.HasOne(b => b.Account).WithMany().HasForeignKey(b => b.AccountId);
             entity.HasOne(b => b.AccountTransaction).WithOne().HasForeignKey<Bid>(b => b.TransactionId);
         });
 
         modelBuilder.Entity<AccountTransaction>(entity =>
         {
-            entity.HasOne(at => at.Account).WithMany().HasForeignKey(at => at.UserId);
+            entity.HasOne(at => at.Account).WithMany().HasForeignKey(at => at.AccountId);
+        });
+
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasOne(rt => rt.Account).WithMany().HasForeignKey(rt => rt.AccountId);
         });
             
     }

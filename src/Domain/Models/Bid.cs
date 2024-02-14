@@ -6,7 +6,7 @@ public class Bid
 
     public long LotId { get; set; }
 
-    public long UserId { get; set; }
+    public long AccountId { get; set; }
 
     public long TransactionId { get; set; }
 
@@ -16,7 +16,7 @@ public class Bid
 
     public Lot? Lot { get; set; } = null;
 
-    public Account? User { get; set; } = null;
+    public Account? Account { get; set; } = null;
 
     public AccountTransaction AccountTransaction { get; set; } = null;
 }

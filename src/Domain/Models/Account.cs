@@ -8,15 +8,14 @@ public class Account
 
     public string? PasswordHash { get; set; } = null;
 
-    public int RoleId { get; set; }
-
     public long Balance { get; set; }
 
     public long ReservedAmount { get; set; }
 
-    public Role? Role { get; set; } = null;
+    public Role Role { get; set; }
 
     public bool IsBlocked { get; set; }
 
     public bool IsDeleted { get; set; }
+
 }

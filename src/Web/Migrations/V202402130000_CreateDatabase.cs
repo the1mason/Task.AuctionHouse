@@ -7,9 +7,6 @@ public class V202402130000_CreateDatabase : Migration
 {
     public override void Up()
     {
-        Create.Table("roles")
-          .WithColumn("id").AsInt32().PrimaryKey().Identity()
-          .WithColumn("name").AsString().NotNullable();
 
         Create.Table("accounts")
             .WithColumn("id").AsInt64().PrimaryKey().Identity()
@@ -44,7 +41,7 @@ public class V202402130000_CreateDatabase : Migration
         Create.Table("bids")
             .WithColumn("id").AsInt64().PrimaryKey().Identity()
             .WithColumn("lot_id").AsInt64().NotNullable().ForeignKey("lots", "id")
-            .WithColumn("user_id").AsInt64().NotNullable().ForeignKey("accounts", "id")
+            .WithColumn("account_id").AsInt64().NotNullable().ForeignKey("accounts", "id")
             .WithColumn("transaction_id").AsInt64().NotNullable().ForeignKey("account_transactions", "id")
             .WithColumn("price").AsInt64().NotNullable()
             .WithColumn("created_at").AsDateTimeOffset().NotNullable();
@@ -53,7 +50,7 @@ public class V202402130000_CreateDatabase : Migration
 
         Create.Table("sessions")
             .WithColumn("token").AsString().PrimaryKey().NotNullable()
-            .WithColumn("user_id").AsInt64().NotNullable().ForeignKey("accounts", "id")
+            .WithColumn("account_id").AsInt64().NotNullable().ForeignKey("accounts", "id")
             .WithColumn("created_at").AsDateTimeOffset().NotNullable()
             .WithColumn("expired_at").AsDateTimeOffset().NotNullable()
             .WithColumn("is_revoked").AsBoolean().WithDefaultValue(false);
@@ -66,6 +63,5 @@ public class V202402130000_CreateDatabase : Migration
         Delete.Table("account_transactions");
         Delete.Table("lots");
         Delete.Table("accounts");
-        Delete.Table("roles");
     }
 }

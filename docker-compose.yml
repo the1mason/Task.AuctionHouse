@@ -1,11 +1,13 @@
 version: '3.4'
 
 services:
-  web:
-    image: ${DOCKER_REGISTRY-}web
+  api:
+    image: ${DOCKER_REGISTRY-}api
     build:
       context: .
-      dockerfile: src/Web/Dockerfile
+      dockerfile: src/Api/Dockerfile
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=postgres;Username=postgres;Password=postgres
   postgres:
     image: postgres
     environment:
