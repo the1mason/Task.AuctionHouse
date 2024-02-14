@@ -13,5 +13,6 @@ public enum RefreshTokenError
 {
     NotFound,
     Expired,
-    Revoked
+    Revoked,
+    Blocked
 }

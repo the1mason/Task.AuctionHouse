@@ -3,7 +3,7 @@ using Domain.Services.Results;
 namespace Domain.Services;
 public interface IRefreshTokenService
 {
-    public Task<RefreshToken> WriteRefreshTokenAsync(long userId, string token);
+    public Task<RefreshToken> CreateRefreshTokenAsync(Account account);
 
-    public Task<RefreshTokenResult> GetRefreshTokenAsync(string token);
+    public Task<RefreshTokenResult> GetRefreshToken(string token);
 }

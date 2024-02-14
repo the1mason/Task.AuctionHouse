@@ -1,10 +1,12 @@
 ﻿using Domain.Models;
 using Domain.Services;
 using Domain.Services.Results;
-using Infrastructure.Services;
+using Infrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Validations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -15,22 +17,16 @@ namespace Api.Controllers;
 public class SecutiryController : ControllerBase
 {
     private readonly IRefreshTokenService _refreshTokenService;
+    private readonly IAccessTokenService _accessTokenService;
     private readonly IAccountService _accountService;
-    private readonly ISecurityService _securityService;
-    private readonly IConfiguration _configuration;
-    private readonly TimeProvider _timeProvider;
 
     public SecutiryController(IRefreshTokenService refreshTokenService,
         IAccountService accountService,
-        ISecurityService securityService,
-        IConfiguration configuration,
-        TimeProvider timeProvider)
+        IAccessTokenService accessTokenService)
     {
         _refreshTokenService = refreshTokenService;
         _accountService = accountService;
-        _securityService = securityService;
-        _configuration = configuration;
-        _timeProvider = timeProvider;        
+        _accessTokenService = accessTokenService;
     }
 
     [HttpPost]
@@ -42,19 +38,23 @@ public class SecutiryController : ControllerBase
 
         var accountResult = await _accountService.AuthenticateAsync(request.Login, request.Password);
 
-        if (accountResult.IsInvalidCredentialsError)
-            return Results.Unauthorized();
+        if (accountResult.IsAuthenticateAccountError)
+            return accountResult.AsAuthenticateAccountError switch
+            {
+                AuthenticateAccountError.NotFound => Results.NotFound(),
+                AuthenticateAccountError.Blocked => Results.Forbid(),
+                AuthenticateAccountError.Unauthorized => Results.Unauthorized(),
+                _ => Results.StatusCode(500)
+            };
 
         Account account = accountResult.AsAccount;
 
-        string newRefreshToken = await Task.Run(_securityService.GenerateTokenAsync);
-        var refreshToken = await _refreshTokenService.WriteRefreshTokenAsync(account.Id, newRefreshToken);
+        var refreshToken = await _refreshTokenService.CreateRefreshTokenAsync(account);
+        var accessToken = _accessTokenService.GenerateAccessToken(account);
 
-        // i'll move it (hopefully!)
-        (string jwtToken, DateTime expires) = GenerateJWT(account, _configuration["Jwt:Issuer"], _configuration["Jwt:Audience"], _configuration["Jwt:Key"])
-
-        return Results.Ok(new CreateTokenResponse(jwtToken, expires, refreshToken.Token, refreshToken.AccountId, refreshToken.ExpiredAt));
+        return Results.Ok(new CreateTokenResponse(accessToken.Value, accessToken.Expires, refreshToken.Token, refreshToken.AccountId, refreshToken.ExpiredAt));
     }
+
     public record CreateTokenRequest(string Login, string Password);
     public record CreateTokenResponse(string Token, DateTime Expires, string RefreshToken, long AccountId, DateTimeOffset RefreshTokenExpires);
 
@@ -65,28 +65,28 @@ public class SecutiryController : ControllerBase
         if(string.IsNullOrWhiteSpace(refreshToken))
             return Results.BadRequest();
 
-        var refreshTokenResult = await _refreshTokenService.GetRefreshTokenAsync(refreshToken);
+        var refreshTokenResult = await _refreshTokenService.GetRefreshToken(refreshToken);
 
         if (refreshTokenResult.IsRefreshTokenError)
             return refreshTokenResult.AsRefreshTokenError switch
             {
-                RefreshTokenError.NotFound => Results.NotFound(),
+                RefreshTokenError.NotFound => Results.NotFound(), 
                 RefreshTokenError.Revoked => Results.Forbid(),
                 RefreshTokenError.Expired => Results.Unauthorized(),
-                _ => Results.BadRequest()
+                RefreshTokenError.Blocked => Results.Forbid(),
+                _ => Results.StatusCode(500)
             };
 
         var storedRefreshToken = refreshTokenResult.AsRefreshToken;
 
-        // i'll move it (hopefully!)
-        (string jwtToken, DateTime expires) = GenerateJWT(storedRefreshToken.Account!, _configuration["Jwt:Issuer"], _configuration["Jwt:Audience"], _configuration["Jwt:Key"]);
+        var accessToken = _accessTokenService.GenerateAccessToken(storedRefreshToken.Account!);
 
-        return Results.Ok(new RefreshTokenResponse(jwtToken, expires));
+        return Results.Ok(new RefreshTokenResponse(accessToken.Value, accessToken.Expires));
     }
 
-    public record RefreshTokenResponse(string jwt, DateTime expires);
+    public record RefreshTokenResponse(string Jwt, DateTime Expires);
 
-    private (string token, DateTime expires) GenerateJWT(Account account, string issuer, string audience, string key)
+/*    private (string token, DateTime expires) GenerateJWT(Account account, string issuer, string audience, string key, TimeSpan lifetime)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var tokenKey = Encoding.ASCII.GetBytes(key);
@@ -97,13 +97,16 @@ public class SecutiryController : ControllerBase
                 new Claim(JwtRegisteredClaimNames.Sub, account.Login),
                 new Claim("Role", account.Role.ToString()),
                 new Claim("AccountId", account.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Jti,Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
              }),
-            Expires = _timeProvider.GetUtcNow().DateTime.AddMinutes(5),
+            Expires = _timeProvider.GetUtcNow().DateTime + lifetime,
+            Issuer = issuer,
+            Audience = audience,
+            IssuedAt = _timeProvider.GetUtcNow().DateTime,
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(tokenKey), SecurityAlgorithms.HmacSha512Signature)
         };
         var token = tokenHandler.CreateToken(tokenDescriptor);
         var tokenString = tokenHandler.WriteToken(token);
         return (tokenString, tokenDescriptor.Expires.Value);
-    }
+    }*/
 }

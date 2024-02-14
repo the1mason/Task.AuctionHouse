@@ -18,5 +18,5 @@ public class Bid
 
     public Account? Account { get; set; } = null;
 
-    public AccountTransaction AccountTransaction { get; set; } = null;
+    public AccountTransaction? AccountTransaction { get; set; } = null;
 }

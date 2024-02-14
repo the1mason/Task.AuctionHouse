@@ -10,8 +10,6 @@ public interface IAccountService
 
     Task<Account> ChangePasswordAsync(long accountId, string oldPassword, string newPassword);
 
-    Task<Account> AuthenticateUserAsync(string login, string password);
-
     Task<Account> ChangeRoleAsync(long accountId, Role role);
 
     Task<Account> SetAccountBlockStatusAsync(long accountId, bool status);
