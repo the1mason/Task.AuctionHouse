@@ -8,8 +8,7 @@ public class V202402130000_CreateDatabase : Migration
 {
     public override void Up()
     {
-
-        Create.Table("accounts")
+         Create.Table("accounts")
             .WithColumn("id").AsInt64().PrimaryKey().Identity()
             .WithColumn("login").AsString(32).Unique().NotNullable()
             .WithColumn("password_hash").AsString().Nullable()
@@ -18,6 +17,7 @@ public class V202402130000_CreateDatabase : Migration
             .WithColumn("reserved_amount").AsInt64().NotNullable()
             .WithColumn("is_blocked").AsBoolean().NotNullable()
             .WithColumn("is_deleted").AsBoolean().NotNullable().WithDefaultValue(false);
+        
 
         Create.Table("lots")
             .WithColumn("id").AsInt64().PrimaryKey().Identity()
@@ -42,9 +42,11 @@ public class V202402130000_CreateDatabase : Migration
         Create.Table("bids")
             .WithColumn("id").AsInt64().PrimaryKey().Identity()
             .WithColumn("lot_id").AsInt64().NotNullable().ForeignKey("lots", "id")
-            .WithColumn("account_id").AsInt64().NotNullable().ForeignKey("accounts", "id")
-            .WithColumn("transaction_id").AsInt64().NotNullable().ForeignKey("account_transactions", "id")
+            .WithColumn("sender_id").AsInt64().Nullable().ForeignKey("accounts", "id")
+            .WithColumn("recipient_id").AsInt64().NotNullable().ForeignKey("accounts", "id")
+            .WithColumn("transaction_id").AsInt64().Nullable().ForeignKey("account_transactions", "id")
             .WithColumn("price").AsInt64().NotNullable()
+            .WithColumn("is_recalled").AsBoolean().NotNullable().WithDefaultValue(false)
             .WithColumn("created_at").AsDateTimeOffset().NotNullable();
 
         Create.UniqueConstraint().OnTable("bids").Column("transaction_id");

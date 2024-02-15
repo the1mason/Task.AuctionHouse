@@ -80,27 +80,14 @@ public class SecutiryController : ControllerBase
 
     public record RefreshTokenResponse(string Jwt, DateTime Expires);
 
-/*    private (string token, DateTime expires) GenerateJWT(Account account, string issuer, string audience, string key, TimeSpan lifetime)
+    [HttpDelete("token")]
+    public async Task<IResult> RevokeToken([FromBody] string refreshToken)
     {
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var tokenKey = Encoding.ASCII.GetBytes(key);
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity(new[]
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, account.Login),
-                new Claim("Role", account.Role.ToString()),
-                new Claim("AccountId", account.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-             }),
-            Expires = _timeProvider.GetUtcNow().DateTime + lifetime,
-            Issuer = issuer,
-            Audience = audience,
-            IssuedAt = _timeProvider.GetUtcNow().DateTime,
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(tokenKey), SecurityAlgorithms.HmacSha512Signature)
-        };
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        var tokenString = tokenHandler.WriteToken(token);
-        return (tokenString, tokenDescriptor.Expires.Value);
-    }*/
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            return Results.BadRequest();
+
+        await _refreshTokenService.RevokeRefreshToken(refreshToken);
+
+        return Results.Ok();
+    }
 }

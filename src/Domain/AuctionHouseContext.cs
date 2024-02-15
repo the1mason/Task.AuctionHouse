@@ -46,7 +46,8 @@ public class AuctionHouseContext : DbContext
 
         modelBuilder.Entity<AccountTransaction>(entity =>
         {
-            entity.HasOne(at => at.Account).WithMany().HasForeignKey(at => at.AccountId);
+            entity.HasOne(at => at.Sender).WithMany().HasForeignKey(at => at.SenderId);
+            entity.HasOne(at => at.Recipient).WithMany().HasForeignKey(at => at.RecipientId);
             entity.Property(a => a.Type).HasConversion<int>();
         });
 

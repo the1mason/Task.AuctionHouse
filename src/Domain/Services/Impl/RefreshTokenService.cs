@@ -69,4 +69,14 @@ public class RefreshTokenService : IRefreshTokenService
 
         return refreshToken;
     }
+
+    public async Task RevokeRefreshToken(string token)
+    {
+        var refreshToken = await _dbContext.RefreshTokens.FirstOrDefaultAsync(rt => rt.Token == token);
+        if (refreshToken is null)
+            return;
+
+        refreshToken.Revoke();
+        await _dbContext.SaveChangesAsync();
+    }
 }

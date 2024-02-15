@@ -4,5 +4,5 @@ public enum TransactionType
 {
     Deposit,
     Withdrawal,
-    Bid
+    Transfer
 }

@@ -16,5 +16,8 @@ public enum LotUpdateError
     NotFound,
     Unauthorized,
     AlreadyOpen,
-    AlreadyClosed
+    AlreadyClosed,
+    InvalidPrice,
+    InvalidCreatedAt,
+    InvalidClosedAt
 }

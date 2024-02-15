@@ -6,4 +6,6 @@ public interface IRefreshTokenService
     public Task<RefreshToken> CreateRefreshTokenAsync(Account account);
 
     public Task<RefreshTokenResult> GetRefreshToken(string token);
+
+    public Task RevokeRefreshToken(string token);
 }

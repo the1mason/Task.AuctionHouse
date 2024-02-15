@@ -4,15 +4,18 @@ public class AccountTransaction
 {
     public long Id { get; set; }
 
-    public long AccountId { get; set; }
+    public long SenderId { get; set; }
+    public long RecipientId { get; set; }
 
     public long Amount { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Account? Account { get; set; } = null;
+    public Account? Sender { get; set; } = null;
+    public Account? Recipient { get; set; } = null;
 
     public bool IsCancelled { get; set; }
+    public bool IsCompleted { get; set; }
 
     public TransactionType Type { get; set; }
 }

@@ -4,7 +4,7 @@ using Domain.Services.Results;
 namespace Domain.Services;
 public interface IAccountService
 {
-    Task<AccountResult> GetAccountAsync(long accountId);
+    Task<Account?> GetAccountAsync(long accountId);
 
     Task<Account[]> GetAccountsAsync(int skip, int take, string? login = null, Role? role = null,
         bool includeDeleted = false, bool includeBlocked = false);

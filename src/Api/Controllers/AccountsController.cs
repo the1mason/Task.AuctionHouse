@@ -37,27 +37,18 @@ public class AccountsController : ControllerBase
 
         return Results.Ok(new RegisterResponse(account.Id, account.Login, account.Role));
     }
-
-    public record RegisterRequest(string Login, string Password);
-    public record RegisterResponse(long AccountId, string Login, Role Role);
+   
 
     [HttpGet("{id}")]
     public async Task<IResult> GetAccount([FromRoute] long id)
     {
-        var accountResult = await _accountService.GetAccountAsync(id);
+        var account = await _accountService.GetAccountAsync(id);
 
-        if (accountResult.IsAccountError)
-            return accountResult.AsAccountError switch
-            {
-                AccountError.NotFound => Results.NotFound(),
-                _ => Results.StatusCode(500)
-            };
-
-        var account = accountResult.AsAccount;
+        if(account is null)
+            return Results.NotFound();
 
         return Results.Ok(new GetAccountResponse(account.Id, account.Login, account.Role, account.Balance));
     }
-    public record GetAccountResponse(long AccountId, string Login, Role Role, long Balance);
 
 
     [HttpGet]
@@ -84,7 +75,6 @@ public class AccountsController : ControllerBase
         var accounts = await _accountService.GetAccountsAsync(skip, take, login, role, includeDeleted, includeBlocked);
         return Results.Ok(accounts.Select(a => new GetAccountsResponse(a.Id, a.Login, a.Role, a.IsBlocked, a.IsDeleted)));
     }
-    public record GetAccountsResponse(long AccountId, string Login, Role Role, bool IsBlocked, bool IsDeleted);
 
 
     [Authorize]
@@ -96,20 +86,13 @@ public class AccountsController : ControllerBase
         if(!hasId)
             return Results.Unauthorized();
 
-        var accountResult = await _accountService.GetAccountAsync(id);
+        var account = await _accountService.GetAccountAsync(id);
 
-        if (accountResult.IsAccountError)
-            return accountResult.AsAccountError switch
-            {
-                AccountError.NotFound => Results.NotFound(),
-                _ => Results.StatusCode(500)
-            };
-
-        var account = accountResult.AsAccount;
+        if (account is null)
+            return Results.NotFound();
 
         return Results.Ok(new GetFullAccountResponse(account.Id, account.Login, account.Role, account.Balance, account.ReservedAmount));
     }
-    public record GetFullAccountResponse(long AccountId, string Login, Role Role, long Balance, long ReservedAmount);
 
     [Authorize]
     [HttpPost("{id}/role")]
@@ -137,8 +120,6 @@ public class AccountsController : ControllerBase
         return Results.Ok(new ChangeRoleResponse(account.Id, account.Role));
     }
 
-    public record ChangeRoleRequest(Role Role);
-    public record ChangeRoleResponse(long AccountId, Role Role);
 
     [Authorize]
     [HttpPost("{id}/block")]
@@ -202,8 +183,16 @@ public class AccountsController : ControllerBase
         return Results.Ok(new BlockAccountResponse(account.Id, account.IsBlocked));
     }
 
+    #region Records
+    public record RegisterRequest(string Login, string Password);
+    public record RegisterResponse(long AccountId, string Login, Role Role);
+    public record GetAccountResponse(long AccountId, string Login, Role Role, long Balance);
+    public record GetAccountsResponse(long AccountId, string Login, Role Role, bool IsBlocked, bool IsDeleted);
+    public record GetFullAccountResponse(long AccountId, string Login, Role Role, long Balance, long ReservedAmount);
+    public record ChangeRoleRequest(Role Role);
+    public record ChangeRoleResponse(long AccountId, Role Role);
     public record BlockAccountResponse(long AccountId, bool IsBlocked);
-
+    #endregion
 
 
 }

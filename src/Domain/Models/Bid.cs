@@ -12,6 +12,8 @@ public class Bid
 
     public required long Price { get; set; }
 
+    public bool IsRecalled { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Lot? Lot { get; set; } = null;

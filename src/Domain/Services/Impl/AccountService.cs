@@ -73,12 +73,9 @@ public class AccountService : IAccountService
         }
     }
 
-    public async Task<AccountResult> GetAccountAsync(long accountId)
+    public async Task<Account?> GetAccountAsync(long accountId)
     {
         var account = await _dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
-        if (account is null)
-            return AccountError.NotFound;
-
         return account;
     }
 
