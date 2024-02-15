@@ -30,7 +30,7 @@ public class TokenGenerator : ITokenGenerator
             Subject = new ClaimsIdentity(new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, account.Login),
-                new Claim("Role", account.Role.ToString()),
+                new Claim("Role", ((int)account.Role).ToString()),
                 new Claim("AccountId", account.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
              }),

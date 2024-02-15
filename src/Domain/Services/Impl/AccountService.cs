@@ -20,7 +20,7 @@ public class AccountService : IAccountService
     public async Task<AuthenticateAccountResult> AuthenticateAsync(string login, string password)
     {
         var account = await _dbContext.Accounts.FirstOrDefaultAsync(a => a.Login == login);
-        if(account is null)
+        if (account is null)
             return AuthenticateAccountError.NotFound;
 
         if (account.IsBlocked)
@@ -28,39 +28,136 @@ public class AccountService : IAccountService
 
         var isPasswordValid = _passwordHasher.VerifyPassword(password, account.PasswordHash!);
 
-        if(!isPasswordValid)
+        if (!isPasswordValid)
             return AuthenticateAccountError.Unauthorized;
 
         return account;
     }
 
-    public async Task<Account> ChangePasswordAsync(long accountId, string oldPassword, string newPassword)
+    public async Task<AccountResult> CreateAccountAsync(string login, string password, Role role)
     {
-        throw new NotImplementedException();
+        var passwordHash = _passwordHasher.HashPassword(password);
+
+        var account = new Account
+        {
+            Login = login,
+            PasswordHash = passwordHash,
+            Role = role,
+            IsBlocked = false,
+            Balance = 0,
+            ReservedAmount = 0,
+            IsDeleted = false
+        };
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+        try
+        {
+            _dbContext.Accounts.Add(account);
+            await _dbContext.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return account;
+        }
+        catch (DbUpdateException ex)
+        {
+            await transaction.RollbackAsync();
+            if (ex.InnerException != null && ex.InnerException.Message.Contains("UNIQUE constraint failed"))
+            {
+                return AccountError.AlreadyExists;
+            }
+            throw;
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
-    public async Task<Account> ChangeRoleAsync(long accountId, Role role)
+    public async Task<AccountResult> GetAccountAsync(long accountId)
     {
-        throw new NotImplementedException();
+        var account = await _dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
+        if (account is null)
+            return AccountError.NotFound;
+
+        return account;
     }
 
-    public async Task<Account> CreateAccountAsync(string login, string password, Role role)
+    public async Task<Account[]> GetAccountsAsync(int skip, int take, string? login = null, Role? role = null, 
+        bool includeDeleted = false, bool includeBlocked = false)
     {
-        throw new NotImplementedException();
+        var query = _dbContext.Accounts.AsQueryable();
+
+        if (login is not null)
+            query = query.Where(a => a.Login.Contains(login));
+
+        if (role is not null)
+            query = query.Where(a => a.Role == role);
+
+        if (!includeDeleted)
+            query = query.Where(a => !a.IsDeleted);
+
+        if (!includeBlocked)
+            query = query.Where(a => !a.IsBlocked);
+
+        return await query.Skip(skip).Take(take).ToArrayAsync();
     }
 
-    public async Task<Account> DeleteAccountAsync(long accountId)
+    public async Task<AccountResult> ChangePasswordAsync(long accountId, string oldPassword, string newPassword)
     {
-        throw new NotImplementedException();
+        var account = await _dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
+        if (account is null)
+            return AccountError.NotFound;
+
+        var isPasswordValid = _passwordHasher.VerifyPassword(oldPassword, account.PasswordHash!);
+
+        if (!isPasswordValid)
+            return AccountError.Unauthorized;
+
+        var newPasswordHash = _passwordHasher.HashPassword(newPassword);
+        account.PasswordHash = newPasswordHash;
+
+        await _dbContext.SaveChangesAsync();
+
+        return account;
+    }
+      
+    public async Task<AccountResult> ChangeRoleAsync(long accountId, Role role)
+    {
+        var account = await _dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
+        if (account is null)
+            return AccountError.NotFound;
+
+        account.Role = role;
+
+        await _dbContext.SaveChangesAsync();
+
+        return account;
     }
 
-    public async Task<Account> GetAccountAsync(long accountId)
+
+    public async Task<AccountResult> DeleteAccountAsync(long accountId)
     {
-        throw new NotImplementedException();
+        var account = await _dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
+        if (account is null)
+            return AccountError.NotFound;
+
+        account.IsDeleted = true;
+
+        await _dbContext.SaveChangesAsync();
+
+        return account;
     }
 
-    public Task<Account> SetAccountBlockStatusAsync(long accountId, bool status)
+    public async Task<AccountResult> SetAccountBlockStatusAsync(long accountId, bool status)
     {
-        throw new NotImplementedException();
+        var account = await _dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
+        if (account is null)
+            return AccountError.NotFound;
+
+        account.IsBlocked = status;
+
+        await _dbContext.SaveChangesAsync();
+
+        return account;
     }
 }

@@ -14,5 +14,6 @@ public enum RefreshTokenError
     NotFound,
     Expired,
     Revoked,
-    Blocked
+    Blocked,
+    Deleted
 }

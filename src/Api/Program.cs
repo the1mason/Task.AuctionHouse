@@ -3,6 +3,7 @@ using Domain;
 using Domain.Contracts;
 using Domain.Services;
 using Domain.Services.Impl;
+using FluentMigrator.Runner;
 using Infrastructure;
 using Infrastructure.Impl;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -10,12 +11,25 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Text.Json.Serialization;
+using Web.Migrations;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var connection = builder.Configuration.GetConnectionString("DefaultConnection");
+
 builder.Services.AddDbContext<AuctionHouseContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+    options.UseNpgsql(connection)
         .UseSnakeCaseNamingConvention()
+        );
+
+builder.Services.AddFluentMigratorCore()
+            .ConfigureRunner(rb =>
+                rb.AddPostgres()
+                .WithGlobalConnectionString(connection)
+                .ScanIn(typeof(V202402130000_CreateDatabase).Assembly).For.Migrations())
+            .AddLogging(lb => lb.AddFluentMigratorConsole()
         );
 
 builder.Services.Configure<TokenOptions>(
@@ -51,7 +65,11 @@ builder.Services.AddSwaggerGen(options =>
 
 });
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(configure => 
+{ 
+    configure.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    configure.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowReadingFromString;
+});
 
 builder.Services.AddAuthentication(options =>
 {
@@ -102,5 +120,11 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var runner = scope.ServiceProvider.GetRequiredService<IMigrationRunner>();
+    runner.MigrateUp();
+}
 
 app.Run();

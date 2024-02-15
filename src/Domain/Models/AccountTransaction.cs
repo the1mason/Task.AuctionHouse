@@ -13,4 +13,6 @@ public class AccountTransaction
     public Account? Account { get; set; } = null;
 
     public bool IsCancelled { get; set; }
+
+    public TransactionType Type { get; set; }
 }

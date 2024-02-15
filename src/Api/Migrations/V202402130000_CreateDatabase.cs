@@ -1,4 +1,5 @@
-﻿using FluentMigrator;
+﻿using Domain.Contracts;
+using FluentMigrator;
 
 namespace Web.Migrations;
 
@@ -10,9 +11,9 @@ public class V202402130000_CreateDatabase : Migration
 
         Create.Table("accounts")
             .WithColumn("id").AsInt64().PrimaryKey().Identity()
-            .WithColumn("login").AsString().Unique().NotNullable()
+            .WithColumn("login").AsString(32).Unique().NotNullable()
             .WithColumn("password_hash").AsString().Nullable()
-            .WithColumn("role_id").AsInt32().NotNullable().ForeignKey("roles", "id")
+            .WithColumn("role").AsInt32().NotNullable().WithDefaultValue(0)
             .WithColumn("balance").AsInt64().NotNullable()
             .WithColumn("reserved_amount").AsInt64().NotNullable()
             .WithColumn("is_blocked").AsBoolean().NotNullable()
@@ -20,7 +21,7 @@ public class V202402130000_CreateDatabase : Migration
 
         Create.Table("lots")
             .WithColumn("id").AsInt64().PrimaryKey().Identity()
-            .WithColumn("title").AsString(96).NotNullable()
+            .WithColumn("title").AsString(64).NotNullable()
             .WithColumn("description").AsString(4096).NotNullable()
             .WithColumn("min_price").AsInt64().NotNullable()
             .WithColumn("current_price").AsInt64().NotNullable()
@@ -54,6 +55,7 @@ public class V202402130000_CreateDatabase : Migration
             .WithColumn("created_at").AsDateTimeOffset().NotNullable()
             .WithColumn("expired_at").AsDateTimeOffset().NotNullable()
             .WithColumn("is_revoked").AsBoolean().WithDefaultValue(false);
+
     }
 
     public override void Down()

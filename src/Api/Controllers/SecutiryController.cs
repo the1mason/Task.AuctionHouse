@@ -1,15 +1,8 @@
 ﻿using Domain.Models;
 using Domain.Services;
 using Domain.Services.Results;
-using Infrastructure;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Validations;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+
 
 namespace Api.Controllers;
 [Route("api/[controller]")]
@@ -74,6 +67,7 @@ public class SecutiryController : ControllerBase
                 RefreshTokenError.Revoked => Results.Forbid(),
                 RefreshTokenError.Expired => Results.Unauthorized(),
                 RefreshTokenError.Blocked => Results.Forbid(),
+                RefreshTokenError.Deleted => Results.NotFound(),
                 _ => Results.StatusCode(500)
             };
 

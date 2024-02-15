@@ -32,7 +32,7 @@ public class RefreshTokenService : IRefreshTokenService
             Account = account,
             IsRevoked = false
         };
-        using var transaction = await _dbContext.Database.BeginTransactionAsync();
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
         
         try
         {
@@ -51,7 +51,7 @@ public class RefreshTokenService : IRefreshTokenService
 
     public async Task<RefreshTokenResult> GetRefreshToken(string token)
     {
-        var refreshToken = await _dbContext.RefreshTokens.FirstOrDefaultAsync(rt => rt.Token == token);
+        var refreshToken = await _dbContext.RefreshTokens.Include(r => r.Account).FirstOrDefaultAsync(rt => rt.Token == token);
         if (refreshToken is null)
             return RefreshTokenError.NotFound;
 
@@ -60,6 +60,12 @@ public class RefreshTokenService : IRefreshTokenService
 
         if (refreshToken.ExpiredAt < _timeProvider.GetUtcNow())
             return RefreshTokenError.Expired;
+
+        if (refreshToken.Account!.IsBlocked)
+            return RefreshTokenError.Blocked;
+
+        if (refreshToken.Account!.IsDeleted)
+            return RefreshTokenError.Deleted;
 
         return refreshToken;
     }

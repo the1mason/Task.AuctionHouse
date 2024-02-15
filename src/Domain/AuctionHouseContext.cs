@@ -22,10 +22,19 @@ public class AuctionHouseContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
 
+        modelBuilder.Entity<Account>(entity =>
+        {
+            entity.Property(a => a.Role).HasConversion<int>();
+            entity.HasIndex(a => a.Login).IsUnique();
+            entity.Property(a => a.Login).HasMaxLength(32);
+        });
+
         modelBuilder.Entity<Lot>(entity =>
         {
             entity.HasOne(l => l.Seller).WithMany().HasForeignKey(l => l.SellerId);
             entity.HasOne(l => l.Winner).WithMany().HasForeignKey(l => l.WinnerId);
+            entity.Property(l => l.Title).HasMaxLength(64);
+            entity.Property(l => l.Description).HasMaxLength(4096);
         });
 
         modelBuilder.Entity<Bid>(entity =>
@@ -38,6 +47,7 @@ public class AuctionHouseContext : DbContext
         modelBuilder.Entity<AccountTransaction>(entity =>
         {
             entity.HasOne(at => at.Account).WithMany().HasForeignKey(at => at.AccountId);
+            entity.Property(a => a.Type).HasConversion<int>();
         });
 
         modelBuilder.Entity<RefreshToken>(entity =>
