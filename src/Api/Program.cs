@@ -13,7 +13,6 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Text.Json.Serialization;
 using Web.Migrations;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,6 +33,9 @@ builder.Services.AddFluentMigratorCore()
 
 builder.Services.Configure<TokenOptions>(
     builder.Configuration.GetSection("Token"));
+
+builder.Services.Configure<PaymentCallbackOptions>(
+    builder.Configuration.GetSection("Payments"));
 
 TokenOptions tokenOptions = builder.Configuration.GetSection("Token").Get<TokenOptions>()!;
 
@@ -103,6 +105,8 @@ builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ILotService, LotService>();
 builder.Services.AddScoped<IBidService, BidService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IPaymentCallbackService, SimplePaymentCallbackService>();
+
 
 // timeprovider
 builder.Services.AddSingleton(TimeProvider.System);

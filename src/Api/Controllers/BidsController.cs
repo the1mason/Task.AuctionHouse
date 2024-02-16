@@ -1,5 +1,6 @@
 ﻿using Domain.Services;
 using Domain.Services.Results;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -98,6 +99,7 @@ public class BidsController : ControllerBase
         return Results.Ok(bids.Select(b => new GetBidResponseWithLot(b.Id, b.LotId, b.Price, b.AccountId, new (b.LotId, b.Lot!.Title, b.Lot!.MinPrice, b.Lot!.OpeningAt, b.Lot!.ClosingAt, b.Lot!.SellerId, b.Lot!.WinnerId))));
     }
 
+    [Authorize]
     [HttpPost("{id}/recall")]
     public async Task<IResult> RecallBid([FromRoute] long id)
     {
@@ -127,6 +129,7 @@ public class BidsController : ControllerBase
         return Results.Ok(new GetBidResponse(bid.Id, bid.LotId, bid.Price, bid.AccountId, bid.CreatedAt, bid.IsRecalled));
     }
 
+    [Authorize]
     [HttpPost("recall")]
     public async Task<IResult> RecallBid([FromBody] RecallBidRequest request)
     {
@@ -155,6 +158,7 @@ public class BidsController : ControllerBase
         return Results.Ok(new GetBidResponse(bid.Id, bid.LotId, bid.Price, bid.AccountId, bid.CreatedAt, bid.IsRecalled));
     }
 
+    [Authorize]
     [HttpPost("claim/{lotId}")]
     public async Task<IResult> ClaimBid([FromRoute] long lotId)
     {

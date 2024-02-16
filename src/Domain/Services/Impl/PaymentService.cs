@@ -1,4 +1,5 @@
 ﻿using Domain.Models;
+using Domain.Services.Results;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -6,77 +7,78 @@ namespace Domain.Services.Impl;
 public class PaymentService : IPaymentService
 {
     private readonly AuctionHouseContext _dbContext;
-    public PaymentService(AuctionHouseContext dbContext)
+    private readonly IAccountService _accountService;
+    public PaymentService(AuctionHouseContext dbContext, IAccountService accountService)
     {
         _dbContext = dbContext;
+        _accountService = accountService;
     }
 
-    public Task<AccountTransaction> CancelAccountTransactionAsync(long id)
+    public async Task<CreateAccountTransactionResult> CreateAccountTransactionAsync(long accountId, long amount, TransactionType type)
     {
-        throw new NotImplementedException();
-    }
+        var account = await _accountService.GetAccountAsync(accountId);
+        if(account is null)
+            return CreateAccountTransactionError.AccountNotFound;
 
-    public Task<AccountTransaction> CompleteAccountTransactionAsync(long id)
-    {
-        throw new NotImplementedException();
-    }
+        if (type == TransactionType.Withdrawal)
+            amount = - amount;
 
-    public Task<AccountTransaction> CreateAccountTransactionAsync(long accountId, long amount, TransactionType type)
-    {
-        throw new NotImplementedException();
-    }
+        if (TransactionType.Transfer == type)
+            return CreateAccountTransactionError.InvalidTransactionType;
 
-    public async Task<AccountTransaction> AddTransactionAsync(AccountTransaction transaction)
-    {
-        // this is dirty and utterly unacceptable :(
-        // i'll revisit it and fix it later
-        var dbContextTransaction = _dbContext.Database.CurrentTransaction;
-        var isExternalTransaction = dbContextTransaction != null;
-        dbContextTransaction ??= await _dbContext.Database.BeginTransactionAsync();
-
+        if(type == TransactionType.Withdrawal && !account.CanAfford(amount))
+            return CreateAccountTransactionError.InsufficientFunds;
+        await using var dbTransaction = await _dbContext.Database.BeginTransactionAsync();
         try
         {
-            var sender = await _dbContext.Accounts.FirstAsync(x => x.Id == transaction.SenderId);
-            var receiver = await _dbContext.Accounts.FirstAsync(x => x.Id == transaction.RecipientId);
+            var transaction = new AccountTransaction
+            {
+                Amount = amount,
+                SenderId = accountId,
+                RecipientId = accountId,
+                Type = type
+            };
 
-            sender.Balance -= transaction.Amount;
-            receiver.Balance += transaction.Amount;
+            account.Balance += amount;
 
             _dbContext.AccountTransactions.Add(transaction);
+
             await _dbContext.SaveChangesAsync();
-
-            if (!isExternalTransaction)
-            {
-                await dbContextTransaction.CommitAsync();
-            }
-
+            await dbTransaction.CommitAsync();
             return transaction;
         }
         catch (Exception)
         {
-            if (!isExternalTransaction)
-            {
-                await dbContextTransaction.RollbackAsync();
-            }
-
+            await dbTransaction.RollbackAsync();
             throw;
         }
-        finally
-        {
-            if (!isExternalTransaction)
-            {
-                await dbContextTransaction.DisposeAsync();
-            }
-        }
     }
 
-    public Task<AccountTransaction> GetAccountTransactionAsync(long id)
+    public async Task<AccountTransaction> AddTransactionAsync(AccountTransaction transaction)
     {
-        throw new NotImplementedException();
-    }
 
-    public Task<AccountTransaction[]> GetAccountTransactionsAsync(long accountId, int limit, int offset, DateTimeOffset? startDate, DateTimeOffset? endDate, bool includeCancelled = false, bool inclidePending = false)
+        var sender = await _dbContext.Accounts.FirstAsync(x => x.Id == transaction.SenderId);
+        var receiver = await _dbContext.Accounts.FirstAsync(x => x.Id == transaction.RecipientId);
+
+        sender.Balance -= transaction.Amount;
+        receiver.Balance += transaction.Amount;
+
+        _dbContext.AccountTransactions.Add(transaction);
+        await _dbContext.SaveChangesAsync();
+
+        return transaction;
+
+    }
+    public Task<AccountTransaction[]> GetAccountTransactionsAsync(long accountId, int limit, int offset, DateTimeOffset? startDate, DateTimeOffset? endDate)
     {
-        throw new NotImplementedException();
+        var query = _dbContext.AccountTransactions.Where(x => x.RecipientId == accountId).OrderByDescending(x => x.CreatedAt).AsQueryable();
+
+        if (startDate is not null)
+            query = query.Where(x => x.CreatedAt >= startDate);
+
+        if (endDate is not null)
+                query = query.Where(x => x.CreatedAt <= endDate);
+          
+        return query.Skip(offset).Take(limit).ToArrayAsync();
     }
 }
