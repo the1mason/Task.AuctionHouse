@@ -8,7 +8,7 @@ public interface IBidService
 
     Task<BidUpdateResult> RecallBidAsync(long lotId, long accountId);
 
-    Task<BidUpdateResult> RecallBidById(long id, long accountId);
+    Task<BidUpdateResult> RecallBidByIdAsync(long id, long accountId);
 
     Task<Bid?> GetBidAsync(long id);
 
@@ -19,4 +19,6 @@ public interface IBidService
     Task<Bid[]> GetBidsWithLotsByAccountAsync(long account, int limit, int offset, bool includeRecalled = true);
 
     Task<Bid?> GetWinningBidWithAccount(long lotId);
+    public Task<BidClaimResult> Claim(long lotId, long accountId);
+
 }

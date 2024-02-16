@@ -8,7 +8,7 @@ public class Bid
 
     public long AccountId { get; set; }
 
-    public long TransactionId { get; set; }
+    public long? TransactionId { get; set; }
 
     public required long Price { get; set; }
 

@@ -11,13 +11,15 @@ public class BidService : IBidService
 
     private readonly ILotService _lotService;
     private readonly IAccountService _accountService;
+    private readonly IPaymentService _paymentService;
 
-    public BidService(TimeProvider timeProvider, ILotService lotService, AuctionHouseContext dbContext, IAccountService accountService)
+    public BidService(TimeProvider timeProvider, ILotService lotService, AuctionHouseContext dbContext, IAccountService accountService, IPaymentService paymentService)
     {
         _timeProvider = timeProvider;
         _lotService = lotService;
         _dbContext = dbContext;
         _accountService = accountService;
+        _paymentService = paymentService;
     }
 
     public async Task<Bid?> GetBidAsync(long id)
@@ -28,7 +30,7 @@ public class BidService : IBidService
 
     public async Task<Bid[]> GetBidsWithAccountsByLotAsync(long lotId, int limit, int offset, bool includeRecalled = true)
     {
-        var query = _dbContext.Bids.Include(x => x.AccountTransaction).Include(x => x.Account).AsQueryable();
+        var query = _dbContext.Bids.Include(x => x.Account).AsQueryable();
         query = query.Where(b => b.LotId == lotId);
         query = query.OrderByDescending(x => x.CreatedAt);
 
@@ -40,7 +42,7 @@ public class BidService : IBidService
 
     public async Task<Bid[]> GetBidsWithLotsByAccountAsync(long accountId, int limit, int offset, bool includeRecalled = true)
     {
-        var query = _dbContext.Bids.Include(x => x.AccountTransaction).Include(x => x.Lot).AsQueryable();
+        var query = _dbContext.Bids.Include(x => x.Lot).AsQueryable();
         query = query.Where(b => b.AccountId == accountId);
         query = query.OrderByDescending(x => x.CreatedAt);
 
@@ -120,7 +122,7 @@ public class BidService : IBidService
         }
         catch (Exception)
         {
-            transaction.Rollback();
+            await transaction.RollbackAsync();
             throw;
         }
     }
@@ -130,10 +132,10 @@ public class BidService : IBidService
         var bid = await FindBidAsync(accountId, lotId);
         if (bid is null)
             return BidUpdateError.BidNotFound;
-        return await RecallBidById(bid.Id, accountId);
+        return await RecallBidByIdAsync(bid.Id, accountId);
     }
 
-    public async Task<BidUpdateResult> RecallBidById(long id, long accountId)
+    public async Task<BidUpdateResult> RecallBidByIdAsync(long id, long accountId)
     {
         var account = await _accountService.GetAccountAsync(accountId);
         var bid = await GetBidAsync(id);
@@ -146,7 +148,7 @@ public class BidService : IBidService
 
         var winner = await GetWinningBidWithAccount(bid.LotId);
 
-        if (winner != null && winner.Id == id)
+        if (winner != null && winner.Id == accountId)
             return BidUpdateError.BidLocked;
 
         if (bid.AccountId != accountId)
@@ -173,5 +175,51 @@ public class BidService : IBidService
     {
         var result = await _dbContext.Bids.FirstOrDefaultAsync(x => x.AccountId == accountId && x.LotId == lotId);
         return result;
+    }
+
+    public async Task<BidClaimResult> Claim(long lotId, long accountId)
+    {
+        var lot = await _lotService.GetLotAsync(lotId);
+
+        if (lot == null)
+            return BidClaimError.NotFound;
+
+        if (lot.WinnerId.HasValue)
+            return BidClaimError.Claimed;
+
+        if (!lot.IsClosed(_timeProvider))
+            return BidClaimError.NotClosed;
+
+        var winningBid = await GetWinningBidWithAccount(lotId);
+
+        if (winningBid == null || winningBid.AccountId != accountId)
+            return BidClaimError.NotWinner;
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+        try
+        {
+            winningBid.Account!.ReleaseFunds(winningBid.Price);
+
+            var newTransaction = new AccountTransaction
+            {
+                Amount = winningBid.Price,
+                CreatedAt = _timeProvider.GetUtcNow(),
+                RecipientId = lot.SellerId,
+                SenderId = accountId,
+                Type = TransactionType.Transfer
+            };
+
+            var result = await _paymentService.AddTransactionAsync(newTransaction);
+
+            lot.WinnerId = accountId;
+            await _dbContext.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return lot;
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 }

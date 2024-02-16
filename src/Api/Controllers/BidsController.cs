@@ -70,7 +70,7 @@ public class BidsController : ControllerBase
     }
 
     [HttpGet("lot/{id}")]
-    public async Task<IResult> GetBidsForLot(long id, int limit, int offset, bool includeRecalled = true)
+    public async Task<IResult> GetBidsForLot(long id, int limit = 100, int offset = 0, bool includeRecalled = true)
     {
 
         if (limit < 0 || limit > 100)
@@ -81,11 +81,113 @@ public class BidsController : ControllerBase
 
         var bids = await _bidService.GetBidsWithAccountsByLotAsync(id, limit, offset, includeRecalled);
 
-        return Results.Ok(bids.Select(b => new GetBidResponse(b.Id, b.LotId, b.Price, b.AccountId, b.CreatedAt)));
+        return Results.Ok(bids.Select(b => new GetBidResponseWithLogin(b.Id, b.LotId, b.Price, b.AccountId, b.Account!.Login, b.CreatedAt)));
+    }
+
+    [HttpGet("account/{id}")]
+    public async Task<IResult> GetBidsForAccount(long id, int limit = 100, int offset = 0, bool includeRecalled = true)
+    {
+        if (limit < 0 || limit > 100)
+            return Results.BadRequest();
+
+        if (offset < 0)
+            return Results.BadRequest();
+
+        var bids = await _bidService.GetBidsWithLotsByAccountAsync(id, limit, offset, includeRecalled);
+
+        return Results.Ok(bids.Select(b => new GetBidResponseWithLot(b.Id, b.LotId, b.Price, b.AccountId, new (b.LotId, b.Lot!.Title, b.Lot!.MinPrice, b.Lot!.OpeningAt, b.Lot!.ClosingAt, b.Lot!.SellerId, b.Lot!.WinnerId))));
+    }
+
+    [HttpPost("{id}/recall")]
+    public async Task<IResult> RecallBid([FromRoute] long id)
+    {
+        var hasId = long.TryParse(User.FindFirstValue("AccountId"), out var accountId);
+
+        if (!hasId)
+            return Results.Unauthorized();
+
+        var result = await _bidService.RecallBidByIdAsync(id, accountId);
+
+        if (result.IsBidUpdateError)
+            return result.AsBidUpdateError switch
+            {
+                BidUpdateError.BidNotFound => Results.NotFound("Unknown bid"),
+                BidUpdateError.BidLocked => Results.BadRequest("You have the top bid on this lot."),
+                BidUpdateError.AccountNotFound => Results.NotFound("Unknown account"),
+                BidUpdateError.LotNotOpen => Results.BadRequest("Lot is not open for bids"),
+                BidUpdateError.LotClosed => Results.BadRequest("Lot is closed for bids"),
+                BidUpdateError.NotOwner => Results.BadRequest("You are not the owner of this bid"),
+                BidUpdateError.InvalidPrice => Results.BadRequest("Invalid price"),
+                BidUpdateError.LotNotFound => Results.NotFound("Unknown lot"),
+                _ => Results.StatusCode(500)
+            };
+
+        var bid = result.AsBid;
+
+        return Results.Ok(new GetBidResponse(bid.Id, bid.LotId, bid.Price, bid.AccountId, bid.CreatedAt, bid.IsRecalled));
+    }
+
+    [HttpPost("recall")]
+    public async Task<IResult> RecallBid([FromBody] RecallBidRequest request)
+    {
+        var hasId = long.TryParse(User.FindFirstValue("AccountId"), out var accountId);
+
+        if (!hasId)
+            return Results.Unauthorized();
+
+        var result = await _bidService.RecallBidAsync(request.LotId, accountId);
+
+        if (result.IsBidUpdateError)
+            return result.AsBidUpdateError switch
+            {
+                BidUpdateError.BidNotFound => Results.NotFound("Unknown bid"),
+                BidUpdateError.BidLocked => Results.BadRequest("You have the top bid on this lot."),
+                BidUpdateError.AccountNotFound => Results.NotFound("Unknown account"),
+                BidUpdateError.LotNotOpen => Results.BadRequest("Lot is not open for bids"),
+                BidUpdateError.LotClosed => Results.BadRequest("Lot is closed for bids"),
+                BidUpdateError.NotOwner => Results.BadRequest("You are not the owner of this bid"),
+                BidUpdateError.InvalidPrice => Results.BadRequest("Invalid price"),
+                BidUpdateError.LotNotFound => Results.NotFound("Unknown lot"),
+                _ => Results.StatusCode(500)
+            };
+
+        var bid = result.AsBid;
+        return Results.Ok(new GetBidResponse(bid.Id, bid.LotId, bid.Price, bid.AccountId, bid.CreatedAt, bid.IsRecalled));
+    }
+
+    [HttpPost("claim/{lotId}")]
+    public async Task<IResult> ClaimBid([FromRoute] long lotId)
+    {
+        var hasId = long.TryParse(User.FindFirstValue("AccountId"), out var accountId);
+
+        if (!hasId)
+            return Results.Unauthorized();
+
+        var result = await _bidService.Claim(lotId, accountId);
+
+        if (result.IsBidClaimError)
+            return result.AsBidClaimError switch
+            {
+                BidClaimError.NotFound => Results.NotFound("Unknown lot"),
+                BidClaimError.NotClosed => Results.BadRequest("Lot is not closed"),
+                BidClaimError.NotWinner => Results.BadRequest("You are not the winner of this lot"),
+                BidClaimError.Claimed => Results.BadRequest("Lot is already claimed"),
+                BidClaimError.NotOpen => Results.BadRequest("Lot is not closed. It's not even open to begin with :|"),
+                _ => Results.StatusCode(500)
+            };
+
+        var lot = result.AsLot;
+        return Results.Ok(new GetLotResponse(lot.Id, lot.SellerId));
     }
 
     public record CreateBidRequest(long LotId, long Amount);
     public record CreateBidResponse(long BidId, long LotId, long Amount, long AccountId, DateTimeOffset CreatedAt);
-    public record GetBidResponse(long BidId, long LotId, long Amount, long AccountId, DateTimeOffset CreatedAt);
+    public record GetBidResponse(long BidId, long LotId, long Amount, long AccountId, DateTimeOffset CreatedAt, bool IsRecalled = false);
+    public record GetBidResponseWithLogin(long BidId, long LotId, long Amount, long AccountId, string Login, DateTimeOffset CreatedAt);
+    public record GetBidResponseWithLot(long BidId, long LotId, long Amount, long AccountId, GetBidResponseLot responseLot);
+    public record GetBidResponseLot(long LotId, string Title, long MinPrice, DateTimeOffset OpeningAt, DateTimeOffset ClosingAt, long SellerId, long? WinnerId);
+    public record RecallBidRequest(long AccountId, long LotId);
+
+    public record GetLotResponse(long LotId, long SellerId);
 
 }

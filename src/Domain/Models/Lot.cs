@@ -66,7 +66,7 @@ public class Lot
         return this;
     }
 
-    public Lot SetClosingAt(DateTimeOffset closingAt, TimeProvider timeProvider)
+    public Lot SetClosingAt(DateTimeOffset closingAt)
     {
         if(OpeningAt == default)
             throw new ArgumentException("OpeningAt should be set before ClosingAt");

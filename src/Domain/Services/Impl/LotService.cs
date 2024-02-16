@@ -1,6 +1,7 @@
 ﻿using Domain.Models;
 using Domain.Services.Results;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace Domain.Services.Impl;
 public class LotService : ILotService
@@ -10,14 +11,12 @@ public class LotService : ILotService
 
     private readonly AuctionHouseContext _dbContext;
 
-    private readonly IBidService _bidService;
     private readonly IPaymentService _paymentService;
 
-    public LotService(TimeProvider timeProvider, AuctionHouseContext dbContext, IBidService bidService, IPaymentService paymentService)
+    public LotService(TimeProvider timeProvider, AuctionHouseContext dbContext, IPaymentService paymentService)
     {
         _timeProvider = timeProvider;
         _dbContext = dbContext;
-        _bidService = bidService;
         _paymentService = paymentService;
     }
 
@@ -30,6 +29,8 @@ public class LotService : ILotService
         DateTimeOffset? opensAt, DateTimeOffset? closesAt, long? accountId, bool includeClosed = false, bool includeDeleted = false)
     {
         var query = _dbContext.Lots.Include(x => x.Seller).Include(x => x.Winner).AsQueryable();
+
+        query = query.OrderBy(x => x.OpeningAt);
 
         if (!includeClosed)
             query = query.Where(l => l.ClosingAt > _timeProvider.GetUtcNow());
@@ -80,7 +81,7 @@ public class LotService : ILotService
 
         try
         {
-            newLot.SetClosingAt(closingAt, _timeProvider);
+            newLot.SetClosingAt(closingAt);
         }
         catch (Exception)
         {
@@ -115,7 +116,7 @@ public class LotService : ILotService
     {
         var query = _dbContext.Lots.AsQueryable();
 
-        query.Where(x => x.IsDeleted == false);
+        query = query.Where(x => x.IsDeleted == false);
 
         if (role < Role.Moderator)
             query = query.Where(x => x.SellerId == accountId);
@@ -142,7 +143,7 @@ public class LotService : ILotService
 
         try
         {
-            lot.SetClosingAt(closingAt, _timeProvider);
+            lot.SetClosingAt(closingAt);
         }
         catch (Exception)
         {
@@ -180,7 +181,7 @@ public class LotService : ILotService
     {
         var query = _dbContext.Lots.AsQueryable();
 
-        query.Where(x => x.IsDeleted == false);
+        query = query.Where(x => x.IsDeleted == false);
 
         if (role < Role.Moderator)
             query = query.Where(x => x.SellerId == accountId);
@@ -202,51 +203,5 @@ public class LotService : ILotService
         lot.IsDeleted = true;
         await _dbContext.SaveChangesAsync();
         return lot;
-    }
-
-    public async Task<LotClaimResult> Claim(long id, long accountId)
-    {
-        var lot = await _dbContext.Lots.Where(x => x.IsDeleted == false).FirstOrDefaultAsync(x => x.Id == id);
-
-        if (lot == null)
-            return LotClaimError.NotFound;
-
-        if (lot.WinnerId.HasValue)
-            return LotClaimError.Claimed;
-
-        if (!lot.IsClosed(_timeProvider))
-            return LotClaimError.NotClosed;
-
-        var winningBid = await _bidService.GetWinningBidWithAccount(id);
-
-        if (winningBid == null || winningBid.AccountId != accountId)
-            return LotClaimError.NotWinner;
-
-        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
-        try
-        {
-            winningBid.Account!.ReleaseFunds(winningBid.Price);
-
-            var newTransaction = new AccountTransaction
-            {
-                Amount = winningBid.Price,
-                CreatedAt = _timeProvider.GetUtcNow(),
-                RecipientId = lot.SellerId,
-                SenderId = accountId,
-                Type = TransactionType.Transfer
-            };
-
-            var result = await _paymentService.AddTransactionAsync(newTransaction);
-
-            lot.WinnerId = accountId;
-            await _dbContext.SaveChangesAsync();
-            await transaction.CommitAsync();
-            return lot;
-        }
-        catch (Exception)
-        {
-            await transaction.RollbackAsync();
-            throw;
-        }
     }
 }

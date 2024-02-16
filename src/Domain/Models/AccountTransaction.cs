@@ -13,9 +13,5 @@ public class AccountTransaction
 
     public Account? Sender { get; set; } = null;
     public Account? Recipient { get; set; } = null;
-
-    public bool IsCancelled { get; set; }
-    public bool IsCompleted { get; set; }
-
     public TransactionType Type { get; set; }
 }

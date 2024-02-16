@@ -16,6 +16,4 @@ public interface ILotService
     public Task<LotUpdateResult> UpdateLotAsync(long id, string title, string description, long minPrice, DateTimeOffset openingAt, DateTimeOffset closingAt, long accountId, Role role);
 
     public Task<LotUpdateResult> DeleteLotAsync(long id, long accountId, Role role, bool force);
-
-    public Task<LotClaimResult> Claim(long id, long accountId);
 }

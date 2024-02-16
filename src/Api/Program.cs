@@ -42,7 +42,7 @@ TokenOptions tokenOptions = builder.Configuration.GetSection("Token").Get<TokenO
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new() { Title = "AutcionHouseApi", Version = "v1" });
+    options.SwaggerDoc("v1", new() { Title = "AuctionHouseApi", Version = "v1" });
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         In = ParameterLocation.Header,
@@ -101,7 +101,8 @@ builder.Services.AddScoped<IAccessTokenService, AccessTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ILotService, LotService>();
-
+builder.Services.AddScoped<IBidService, BidService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 // timeprovider
 builder.Services.AddSingleton(TimeProvider.System);

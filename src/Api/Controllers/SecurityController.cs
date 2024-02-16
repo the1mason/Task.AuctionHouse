@@ -7,13 +7,13 @@ using Microsoft.AspNetCore.Mvc;
 namespace Api.Controllers;
 [Route("api/[controller]")]
 [ApiController]
-public class SecutiryController : ControllerBase
+public class SecurityController : ControllerBase
 {
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly IAccessTokenService _accessTokenService;
     private readonly IAccountService _accountService;
 
-    public SecutiryController(IRefreshTokenService refreshTokenService,
+    public SecurityController(IRefreshTokenService refreshTokenService,
         IAccountService accountService,
         IAccessTokenService accessTokenService)
     {

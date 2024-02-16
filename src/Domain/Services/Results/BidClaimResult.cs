@@ -5,16 +5,15 @@ namespace Domain.Services.Results;
 
 
 [UnionType(typeof(Lot))]
-[UnionType(typeof(LotClaimError))]
-public readonly partial struct LotClaimResult
+[UnionType(typeof(BidClaimError))]
+public readonly partial struct BidClaimResult
 {
 
 }
 
-public enum LotClaimError
+public enum BidClaimError
 {
     NotFound,
-    Unauthorized,
     NotWinner,
     NotClosed,
     NotOpen,

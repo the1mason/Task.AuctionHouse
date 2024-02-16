@@ -194,5 +194,4 @@ public class AccountsController : ControllerBase
     public record BlockAccountResponse(long AccountId, bool IsBlocked);
     #endregion
 
-
 }

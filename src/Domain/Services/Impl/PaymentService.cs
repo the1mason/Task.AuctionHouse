@@ -1,4 +1,6 @@
 ﻿using Domain.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Domain.Services.Impl;
 public class PaymentService : IPaymentService
@@ -26,9 +28,46 @@ public class PaymentService : IPaymentService
 
     public async Task<AccountTransaction> AddTransactionAsync(AccountTransaction transaction)
     {
-        _dbContext.AccountTransactions.Add(transaction);
-        await _dbContext.SaveChangesAsync();
-        return transaction;
+        // this is dirty and utterly unacceptable :(
+        // i'll revisit it and fix it later
+        var dbContextTransaction = _dbContext.Database.CurrentTransaction;
+        var isExternalTransaction = dbContextTransaction != null;
+        dbContextTransaction ??= await _dbContext.Database.BeginTransactionAsync();
+
+        try
+        {
+            var sender = await _dbContext.Accounts.FirstAsync(x => x.Id == transaction.SenderId);
+            var receiver = await _dbContext.Accounts.FirstAsync(x => x.Id == transaction.RecipientId);
+
+            sender.Balance -= transaction.Amount;
+            receiver.Balance += transaction.Amount;
+
+            _dbContext.AccountTransactions.Add(transaction);
+            await _dbContext.SaveChangesAsync();
+
+            if (!isExternalTransaction)
+            {
+                await dbContextTransaction.CommitAsync();
+            }
+
+            return transaction;
+        }
+        catch (Exception)
+        {
+            if (!isExternalTransaction)
+            {
+                await dbContextTransaction.RollbackAsync();
+            }
+
+            throw;
+        }
+        finally
+        {
+            if (!isExternalTransaction)
+            {
+                await dbContextTransaction.DisposeAsync();
+            }
+        }
     }
 
     public Task<AccountTransaction> GetAccountTransactionAsync(long id)
